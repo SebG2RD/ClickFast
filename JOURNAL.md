@@ -80,3 +80,36 @@ disque. C'est la seconde valeur qui détermine le temps de téléchargement d'un
 déploiement.
 
 Premier artefact publié : `nghtmre/clickfast:2c766fc31ae2d029764cc1b663a03a47605ff347`.
+
+## Scénarios de publication vérifiés
+
+| Scénario | Run | Résultat |
+| --- | --- | --- |
+| Push sur `main`, tests verts | `30924519010` | Lint ✅ Test ✅ Build & Push ✅ — tag `2c766fc…` |
+| Second push sur `main` | `30924700170` | tag `76844ac…`, distinct du précédent |
+| Pull request #1 | `30924897416` | Lint ✅ Test ✅ **Build & Push `skipped`** — aucun tag ajouté |
+| Secret mal orthographié | `30925276021` | Lint ✅ Test ✅ **Build & Push ❌** |
+
+**Deux push, deux images.** Les tags publiés valent exactement le sha de leur
+commit, donc chaque push produit un artefact distinct et traçable. Si les deux
+runs avaient produit le même tag, c'est que le champ `tags:` n'aurait pas été
+branché sur `${{ github.sha }}`.
+
+**Une pull request ne publie rien.** La condition
+`if: github.event_name == 'push' && github.ref == 'refs/heads/main'` fait
+apparaître le job en `skipped` plutôt qu'en échec : la pipeline reste verte,
+mais rien n'est envoyé sur le registre.
+
+**Un secret introuvable échoue tard et localement.** Avec
+`DOCKERHUB_TOKENN` au lieu de `DOCKERHUB_TOKEN`, GitHub ne signale aucune
+erreur de syntaxe : l'expression est simplement remplacée par une chaîne vide.
+L'échec n'apparaît qu'à l'exécution de `docker/login-action` :
+
+```text
+username: ***
+##[error]Password required
+```
+
+`lint` et `test` étant déjà terminés, seul `build-and-push` tombe. C'est
+l'intérêt de découper la pipeline en jobs : l'échec désigne l'étape fautive au
+lieu de teinter tout le run en rouge.
