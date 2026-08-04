@@ -4,6 +4,7 @@
   "description": "Sois le plus rapide des clickers du game ⚡",
   "main": "script.js",
   "scripts": {
+    "lint": "eslint .",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -21,7 +22,10 @@
   },
   "homepage": "https://github.com/SebG2RD/ClickFast#readme",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/jest": "^30.0.0",
+    "eslint": "^10.8.0",
+    "globals": "^17.9.0",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "jsdom": "^30.0.1"

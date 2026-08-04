@@ -57,7 +57,7 @@ function handleScoreForm() {
       await submitScore(username, score);
       status.textContent = `Score de ${score} envoyé, bravo ${username} !`;
       await displayScores();
-    } catch (error) {
+    } catch {
       status.textContent = "L'envoi a échoué, réessaie dans un instant.";
     }
   });
@@ -199,7 +199,7 @@ async function displayScores() {
     for (const entry of classement) {
       list.appendChild(buildScoreLine(entry));
     }
-  } catch (error) {
+  } catch {
     list.innerHTML = "<li>Scoreboard indisponible pour le moment</li>";
   }
 }
