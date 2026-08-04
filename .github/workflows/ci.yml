@@ -1,0 +1,48 @@
+name: CI
+
+# Pas de filtre "branches:" ici, volontairement : le workflow se déclenche sur
+# TOUTES les branches. Avec un filtre du type `branches: ["main"]`, travailler
+# sur une branche renommée ne déclencherait plus rien, sans le moindre message
+# d'erreur — le piège le plus silencieux de la CI.
+on: [push, pull_request]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Analyser le code avec ESLint
+        run: npm run lint
+
+  test:
+    name: Test
+    # test attend que lint soit vert : si le lint échoue, ce job ne démarre pas
+    needs: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Lancer les tests Jest
+        run: npm test
