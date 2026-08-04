@@ -45,18 +45,16 @@ describe("ClickFast", () => {
       expect(scoreDisplay.textContent).toBe("0");
     });
 
-    test("augmente de 1 après un clic", () => {
+    test("Vérifiez que le score s'incrémente correctement", () => {
+      // Un seul clic
       buttonClicker.click();
-
       expect(getScore()).toBe(1);
       expect(scoreDisplay.textContent).toBe("1");
-    });
 
-    test("vaut 5 après cinq clics", () => {
-      for (let i = 0; i < 5; i++) {
+      // Puis plusieurs clics d'affilée
+      for (let i = 0; i < 4; i++) {
         buttonClicker.click();
       }
-
       expect(getScore()).toBe(5);
       expect(scoreDisplay.textContent).toBe("5");
     });
@@ -89,10 +87,19 @@ describe("ClickFast", () => {
       expect(jest.getTimerCount()).toBe(1);
     });
 
-    test("atteint 0 après 5 secondes", () => {
+    test("Vérifiez que le timer décompte correctement", () => {
+      // Un clic pour démarrer le jeu
       buttonClicker.click();
-      jest.advanceTimersByTime(5000);
 
+      // On avance le temps seconde par seconde
+      jest.advanceTimersByTime(1000);
+      expect(timerDisplay.textContent).toBe("4");
+
+      jest.advanceTimersByTime(1000);
+      expect(timerDisplay.textContent).toBe("3");
+
+      // Puis jusqu'à la fin de la partie
+      jest.advanceTimersByTime(3000);
       expect(timerDisplay.textContent).toBe("0");
     });
   });
@@ -119,14 +126,19 @@ describe("ClickFast", () => {
       expect(jest.getTimerCount()).toBe(0);
     });
 
-    test("le score n'augmente plus après la fin", () => {
+    test("Vérifiez que le score ne s'incrémente pas après la fin du timer", () => {
+      // Des clics pour démarrer le jeu et marquer des points
       buttonClicker.click();
       buttonClicker.click();
-      jest.advanceTimersByTime(5000);
-
-      buttonClicker.click();
-
       expect(getScore()).toBe(2);
+
+      // On attend l'expiration du timer, puis on réessaie de cliquer
+      jest.advanceTimersByTime(5000);
+      buttonClicker.click();
+
+      // Le score n'a pas bougé : le bouton désactivé n'écoute plus les clics
+      expect(getScore()).toBe(2);
+      expect(scoreDisplay.textContent).toBe("2");
     });
 
     test("le score final est affiché sur le bouton", () => {
@@ -140,12 +152,19 @@ describe("ClickFast", () => {
   });
 
   describe("Le bouton reset", () => {
-    test("remet le score à 0", () => {
+    test("Vérifiez que le bouton de réinitialisation remet le score à zéro", () => {
+      // Quelques clics pour augmenter le score
+      buttonClicker.click();
       buttonClicker.click();
       buttonClicker.click();
 
+      // Le score est bien supérieur à zéro
+      expect(getScore()).toBeGreaterThan(0);
+
+      // Clic sur le bouton de réinitialisation
       buttonReset.click();
 
+      // Le score a été remis à zéro
       expect(getScore()).toBe(0);
       expect(scoreDisplay.textContent).toBe("0");
     });
