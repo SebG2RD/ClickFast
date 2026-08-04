@@ -38,7 +38,7 @@ Gain net d'environ 3 s par run.
 Ce n'est pas un défaut de configuration. Le log confirme que le cache
 fonctionne comme prévu :
 
-```
+```text
 Cache hit for: node-cache-Linux-x64-npm-64a5effc452ceb...
 Cache restored successfully
 Cache hit occurred on the primary key, not saving cache.
@@ -67,8 +67,16 @@ Le second run de mesure ne modifiait que `ci.yml`. Le lockfile étant
 inchangé, la clé primaire est identique et le log affiche `Cache hit`, sans
 repli sur une clé partielle.
 
-## Reste à mesurer
+## Taille de l'image publiée
 
-La taille de l'image publiée sur Docker Hub (compressée, donc inférieure aux
-92,7 Mo locaux) sera relevée dès que les secrets `DOCKERHUB_USERNAME` et
-`DOCKERHUB_TOKEN` seront configurés dans les réglages du dépôt.
+| Mesure | Taille |
+| --- | --- |
+| Locale, décompressée (`docker images`) | 92,7 Mo |
+| Publiée sur Docker Hub, compressée | 24,9 Mo |
+
+L'écart est normal : Docker Hub stocke et transfère les couches compressées,
+alors que `docker images` affiche la taille une fois décompressée sur le
+disque. C'est la seconde valeur qui détermine le temps de téléchargement d'un
+déploiement.
+
+Premier artefact publié : `nghtmre/clickfast:2c766fc31ae2d029764cc1b663a03a47605ff347`.
