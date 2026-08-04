@@ -27,6 +27,24 @@
           <button id="button-clicker" type="button">Clique !</button>
           <button id="button-reset" type="button">Rejouer</button>
         </div>
+
+        <form id="score-form" class="flex-center score-form">
+          <label class="sr-only" for="username">Ton pseudo</label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            placeholder="Ton pseudo"
+            maxlength="30"
+          />
+          <button id="button-submit" type="submit" disabled>
+            Envoyer mon score
+          </button>
+        </form>
+        <p id="submit-status" class="status flex-center"></p>
+
+        <h2 class="flex-center">Scoreboard</h2>
+        <ol id="scoreboard" class="scoreboard"></ol>
       </div>
     </div>
 
