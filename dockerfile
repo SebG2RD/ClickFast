@@ -2,5 +2,5 @@ FROM nginx:alpine
 WORKDIR /usr/share/nginx/html
 COPY . .
 RUN ls -la
-EXPOSE 80
+EXPOSE 3000
 CMD ["nginx", "-g", "daemon off;"]
