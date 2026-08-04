@@ -4,20 +4,30 @@ Sois le plus rapide des clickers du game ⚡
 
 ## Sommaire
 
-- [Comment utiliser le projet ?](#comment-utiliser-le-projet-)
-- [Exercices](#exercices)
-  - [Exercice I - Faire fonctionner ClickFast (HTML CSS JS)](#exercice-i---faire-fonctionner-clickfast-html-css-js)
-    - [1. Initialisation du projet](#1-initialisation-du-projet)
-    - [2. Création des fichiers](#2-création-des-fichiers)
-    - [3. Fonctionnalités de base](#3-fonctionnalités-de-base)
-  - [Exercice II - Docker](#exercice-ii---docker)
-  - [Exercice III - CI/CD](#exercice-iii---cicd)
-  - [Exercice IV - Tests automatisés](#exercice-iv---tests-automatisés)
-  - [Exercice V - Connecter notre projet à une API](#exercice-v---connecter-notre-projet-à-une-api)
-- [Tips du Terminal](#tips-du-terminal)
-  - [1. Raccourcis](#1-raccourcis)
-  - [2. Commandes](#2-commandes)
-  - [3. Commandes Git](#3-commandes-git)
+- [ClickFast ⏩](#clickfast-)
+  - [Sommaire](#sommaire)
+  - [Comment utiliser le projet ?](#comment-utiliser-le-projet-)
+  - [Exercices](#exercices)
+    - [Exercice I - Faire fonctionner ClickFast (HTML CSS JS)](#exercice-i---faire-fonctionner-clickfast-html-css-js)
+      - [1. Initialisation du projet](#1-initialisation-du-projet)
+      - [2. Création des fichiers](#2-création-des-fichiers)
+      - [3. Fonctionnalités de base](#3-fonctionnalités-de-base)
+    - [Exercice II - Docker](#exercice-ii---docker)
+    - [Exercice III - CI/CD](#exercice-iii---cicd)
+    - [Exercice IV - Tests automatisés](#exercice-iv---tests-automatisés)
+      - [1. Les Tests Unitaires avec Jest - Bases des bases](#1-les-tests-unitaires-avec-jest---bases-des-bases)
+      - [2. Inventer notre propre test](#2-inventer-notre-propre-test)
+        - [2.1. Installations :](#21-installations-)
+        - [2.2. Tester les clics sur le bouton :](#22-tester-les-clics-sur-le-bouton-)
+      - [3. Ajouter d'autres tests (Bonus)](#3-ajouter-dautres-tests-bonus)
+        - [3.2. Ajouts de tests](#32-ajouts-de-tests)
+      - [5. Déclencher les tests en ligne](#5-déclencher-les-tests-en-ligne)
+    - [Exercice V - Connecter notre projet à une API](#exercice-v---connecter-notre-projet-à-une-api)
+      - [Comment manipuler l'API ?](#comment-manipuler-lapi-)
+  - [Tips du Terminal](#tips-du-terminal)
+    - [1. Raccourcis](#1-raccourcis)
+    - [2. Commandes](#2-commandes)
+    - [3. Commandes Git](#3-commandes-git)
 
 ---
 
@@ -70,7 +80,6 @@ Conteneuriser le projet dans un Docker :
 
 1. Créer un Dockerfile
 2. Trouver comment faire pour envelopper le projet dans un Dockerfile, et le lancer depuis docker.
-
    - Faire une simple recherche internet, ex: `html css docker`.  
      On se rend compte que la plupart des personnes recommandent nginx qui est super simple et adapté au lancement de sites statiques.
    - Solution : il y a toujours plein de solutions possibles.
@@ -177,7 +186,6 @@ L'objectif du test unitaire va être de vérifier que quand on clique sur un bou
 1. **Création d'un DOM de test**  
    Avec Jest, on va tester une représentation factice de notre projet.  
    On va donc créer un faux DOM dans notre test, pour jouer dessus.
-
    - Si les fonctions de `script.js` fonctionnent sur ce HTML, nos tests passent
    - Si les fonctions ne se comportent pas comme on le souhaite, les tests échouent.
 
@@ -377,9 +385,7 @@ const deleteUserByUsername = async (username) => {
     }
 
     const users = await response.json();
-    const usersToDelete = users.filter(
-      (user) => user.username === username
-    );
+    const usersToDelete = users.filter((user) => user.username === username);
 
     // Étape 2 : Supprimer chaque utilisateur trouvé
     for (const user of usersToDelete) {
@@ -390,7 +396,7 @@ const deleteUserByUsername = async (username) => {
       if (!deleteResponse.ok) {
         console.error(
           `Error deleting user with ID ${user.id}:`,
-          deleteResponse.statusText
+          deleteResponse.statusText,
         );
       } else {
         console.log(`User with ID ${user.id} deleted successfully.`);
@@ -454,6 +460,3 @@ deleteUserByUsername(usernameToDelete);
 - `git commit -m "J'ai fait telle chose` : nommer une nouvelle sauvegarde
 - `git push` : envoyer les sauvegardes vers GitHub
 - `git remote -v` : voir les connexions entre notre dossier local (dans l'ordi) et les éléments en ligne (connexion au repository GitHub, ou autres)
-# ClickFast
-# ClickFast
-# ClickFast
