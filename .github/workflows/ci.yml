@@ -18,6 +18,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          # Met en cache le dossier de téléchargement npm (~/.npm), avec une clé
+          # dérivée du hash de package-lock.json. npm ci reconstruit toujours
+          # node_modules à partir du lockfile : le cache accélère l'installation,
+          # il ne décide jamais de son contenu.
+          cache: npm
 
       - name: Installer les dépendances
         run: npm ci
@@ -38,6 +43,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          # Met en cache le dossier de téléchargement npm (~/.npm), avec une clé
+          # dérivée du hash de package-lock.json. npm ci reconstruit toujours
+          # node_modules à partir du lockfile : le cache accélère l'installation,
+          # il ne décide jamais de son contenu.
+          cache: npm
 
       - name: Installer les dépendances
         run: npm ci
