@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/SebG2RD/ClickFast#readme",
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "jsdom": "^30.0.1"
