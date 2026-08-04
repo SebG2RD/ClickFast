@@ -1,31 +1,48 @@
-// Récupération des éléments du DOM
-const button = document.getElementById("button-clicker");
-const countDisplay = document.getElementById("count");
-const timeDisplay = document.getElementById("time");
+// ---------------------------------------------------------------
+// Variables du jeu
+// ---------------------------------------------------------------
+const DUREE = 5; // durée d'une partie, en secondes
 
-// 1. La variable count, qui stocke le nombre de clics
-let count = 0;
-
-// Variables du chrono
-const DUREE = 5; // durée de la partie en secondes
+let score = 0;
 let timeLeft = DUREE;
-let timer = null; // identifiant du setInterval, null tant que la partie n'a pas démarré
+let timer = null; // id du setInterval, null tant qu'aucune partie n'est lancée
 
-// 2. L'eventListener sur le bouton
-button.addEventListener("click", () => {
-  // Le premier clic lance le chrono
-  if (timer === null) {
-    startTimer();
-  }
+// ---------------------------------------------------------------
+// Mise en place des boutons
+// ---------------------------------------------------------------
 
-  count++;
-  countDisplay.textContent = `${count}`;
-});
+/** Branche le bouton de clic et remet le jeu dans son état initial. */
+function handleGameButton() {
+  const buttonClicker = document.getElementById("button-clicker");
+
+  buttonClicker.addEventListener("click", () => {
+    // Le premier clic lance le chrono
+    if (timer === null) {
+      startTimer();
+    }
+
+    score++;
+    document.getElementById("score").textContent = `${score}`;
+  });
+
+  resetGame();
+}
+
+/** Branche le bouton de remise à zéro. */
+function handleResetButton() {
+  const buttonReset = document.getElementById("button-reset");
+
+  buttonReset.addEventListener("click", resetGame);
+}
+
+// ---------------------------------------------------------------
+// Logique du jeu
+// ---------------------------------------------------------------
 
 function startTimer() {
   timer = setInterval(() => {
     timeLeft--;
-    timeDisplay.textContent = `${timeLeft}`;
+    document.getElementById("timer").textContent = `${timeLeft}`;
 
     if (timeLeft <= 0) {
       stopGame();
@@ -35,6 +52,45 @@ function startTimer() {
 
 function stopGame() {
   clearInterval(timer);
-  button.disabled = true;
-  button.textContent = `Terminé ! ${count} clics 🎉`;
+
+  const buttonClicker = document.getElementById("button-clicker");
+  buttonClicker.disabled = true;
+  buttonClicker.textContent = `Terminé ! ${score} clics 🎉`;
+}
+
+function resetGame() {
+  clearInterval(timer);
+  timer = null;
+  score = 0;
+  timeLeft = DUREE;
+
+  document.getElementById("score").textContent = `${score}`;
+  document.getElementById("timer").textContent = `${timeLeft}`;
+
+  const buttonClicker = document.getElementById("button-clicker");
+  buttonClicker.disabled = false;
+  buttonClicker.textContent = "Clique !";
+}
+
+/**
+ * `score` est une variable interne au fichier. On l'expose via une fonction :
+ * exporter la variable directement n'en donnerait qu'une copie figée à 0.
+ */
+function getScore() {
+  return score;
+}
+
+// ---------------------------------------------------------------
+// Démarrage dans le navigateur
+// ---------------------------------------------------------------
+// On attend que le DOM soit chargé, sinon getElementById renverrait null.
+document.addEventListener("DOMContentLoaded", () => {
+  handleGameButton();
+  handleResetButton();
+});
+
+// Export pour Jest. Le test `typeof module` évite un plantage dans le
+// navigateur, où la variable `module` n'existe pas.
+if (typeof module !== "undefined") {
+  module.exports = { handleGameButton, handleResetButton, getScore };
 }

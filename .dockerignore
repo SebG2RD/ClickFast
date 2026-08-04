@@ -1,0 +1,13 @@
+# L'image nginx ne sert que les fichiers statiques
+node_modules/
+coverage/
+__tests__/
+jest.config.js
+package.json
+package-lock.json
+.git/
+.github/
+dockerfile
+.dockerignore
+.gitignore
+README.md
