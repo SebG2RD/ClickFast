@@ -33,7 +33,36 @@ Sois le plus rapide des clickers du game ⚡
 
 ## Comment utiliser le projet ?
 
-Lancez `index.html` et voilà !
+Le plus simple : ouvrez `index.html` dans un navigateur.
+
+Pour travailler sur le projet, il faut Node.js afin de disposer du linter et
+des tests :
+
+```bash
+npm ci          # installe les dépendances depuis package-lock.json
+npm run lint    # analyse le code avec ESLint
+npm test        # lance la suite Jest
+```
+
+Pour le lancer conteneurisé :
+
+```bash
+docker build -t clickfast .
+docker run -d -p 8080:80 clickfast   # puis http://localhost:8080
+```
+
+Les images sont aussi publiées automatiquement sur Docker Hub à chaque push
+sur `main`, taguées par le sha du commit :
+
+```bash
+docker run -d -p 8080:80 nghtmre/clickfast:<sha-du-commit>
+```
+
+Le scoreboard interroge une API partagée : sans connexion, le jeu fonctionne
+mais la liste des scores affiche « Scoreboard indisponible ».
+
+Les mesures de performance de la pipeline sont consignées dans
+[JOURNAL.md](JOURNAL.md).
 
 ## Exercices
 
