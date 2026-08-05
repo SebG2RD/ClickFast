@@ -297,3 +297,78 @@ jobs:
               process.exit(1);
             }
           '
+
+  sbom:
+    name: Inventaire des composants
+    # Le SBOM de l'image suppose que l'image existe : même dépendance que Trivy.
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/clickfast:${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: mkdir -p sbom rapports
+
+      # Deux périmètres, parce qu'ils ne contiennent pas la même chose : le
+      # .dockerignore exclut package.json de l'image, donc un SBOM de l'image
+      # ne verrait jamais les dépendances npm.
+      - name: Inventorier l'image publiée
+        id: sbom_image
+        continue-on-error: true
+        uses: anchore/sbom-action@v0.24.0
+        with:
+          image: ${{ env.IMAGE }}
+          format: cyclonedx-json
+          output-file: sbom/sbom-image.cdx.json
+          upload-artifact: false
+
+      - name: Inventorier les sources
+        id: sbom_sources
+        continue-on-error: true
+        uses: anchore/sbom-action@v0.24.0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom/sbom-sources.cdx.json
+          upload-artifact: false
+
+      - name: Rédiger les rapports SBOM
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            for (const [cle, libelle] of [["image", "SBOM image"], ["sources", "SBOM sources"]]) {
+              let n = -1;
+              try {
+                n = JSON.parse(fs.readFileSync("sbom/sbom-" + cle + ".cdx.json", "utf8")).components.length;
+              } catch {}
+              fs.writeFileSync("rapports/rapport-sbom-" + cle + ".json", JSON.stringify({
+                scanner: libelle,
+                statut: n < 0 ? "erreur" : "ok",
+                compte: Math.max(n, 0),
+                unite: "composants recenses",
+                detail: n < 0 ? "inventaire non genere" : "format CycloneDX"
+              }, null, 2));
+            }
+          '
+
+      # Deux artefacts distincts : les inventaires complets d un cote, les
+      # petits fichiers de comptage de l autre. Les melanger deverserait les
+      # SBOM entiers dans le dossier fusionne du job de resume.
+      - name: Publier les SBOM téléchargeables
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: sbom/
+          if-no-files-found: warn
+
+      - name: Envoyer les rapports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-sbom
+          path: rapports/
+          if-no-files-found: warn
