@@ -174,3 +174,89 @@ contre `lodash <= 4.17.23` (GHSA-r5fr-rjxr-66jc, GHSA-f23m-r3pf-42rh,
 GHSA-xxjr-mmjv-4gpg). Ce n'était pas prévu : la version passait pour saine.
 La pipeline a attrapé une vulnérabilité actuelle sur une dépendance courante,
 ce qui vaut mieux que n'importe quelle démonstration préparée.
+
+## Palier 3 : la validation humaine et la séparation des workflows
+
+### Phase 8 : un humain avant la publication
+
+L'environnement `production` a été créé avec `SebG2RD` comme relecteur
+obligatoire et un déploiement restreint à `main`. Le job `build-and-push` y est
+rattaché par `environment: production`.
+
+Constat au premier push : le run est passé en `waiting`, `lint`, `test` et
+`security-deps` au vert, et `Build & Push` arrêté net. L'API confirmait
+`current_user_can_approve: true` pour le relecteur `SebG2RD`. Rien n'est parti
+sur Docker Hub tant que personne n'avait cliqué.
+
+| Événement | Horodatage |
+| --- | --- |
+| Run bloqué en attente | 2026-08-05, run `31004428020` |
+| Approuvé par `SebG2RD` | 2026-08-05T12:10:14Z |
+
+C'est le passage du Continuous Deployment au Continuous Delivery : la pipeline
+sait toujours tout faire, mais elle demande la permission avant de rendre
+quelque chose public.
+
+### Phase 9 : deux fichiers, deux intentions
+
+| Fichier | Déclencheur | Rôle |
+| --- | --- | --- |
+| `_verifications.yml` | `workflow_call` | lint, test, security-deps |
+| `verify.yml` | `pull_request` | vérifie, ne publie jamais |
+| `release.yml` | `push` sur `main` | vérifie puis publie, sous validation |
+
+Les jobs communs sont appelés par les deux plutôt que dupliqués. Le PDF
+affirme que « GitHub Actions ne partage pas facilement du code entre
+workflows » : ce n'est plus exact depuis `workflow_call`. Ce qui compte, et
+qui est respecté, c'est que les déclencheurs restent strictement séparés.
+
+Vérifié en conditions réelles : un push sur `main` ne déclenche que `Release`,
+une pull request ne déclenche que `Verify`.
+
+**Un piège traité à la conception.** Sur une pull request, `security-image` et
+`sbom` n'existent pas du tout, au lieu d'être `skipped`. Le job de résumé
+n'aurait donc vu aucun job en défaut et aurait annoncé « publiable en
+confiance » avec deux lignes sur cinq, sans avoir jamais regardé l'image.
+Chaque appelant passe désormais une variable `CONTEXTE`, et le verdict sur
+pull request devient « vérifications de branche : OK (scans d'image hors
+périmètre) ». Le script ne connaît toujours aucun nom de scanner.
+
+### Phase 10 : casser `main`, et s'en remettre
+
+Une assertion de `script.test.js` a été inversée sur une branche : un clic
+devait donner 1, le test attendait 2.
+
+| Étape | Run | Résultat |
+| --- | --- | --- |
+| Pull request #5 | `31006587515` | `Verify` ❌ sur `test`, `Release` non déclenché |
+| Fusion malgré le rouge | commit `9536d8b` à 14:51:33 | rien ne s'y est opposé |
+| `main` après fusion | `31007495267` | `Release` ❌, `Build & Push` **skipped** |
+| Correction | commit `934787e` à 15:05:01 | chaîne entièrement verte |
+
+**Temps de rétablissement : 13 minutes 28 secondes.** C'est la métrique DORA
+correspondante, mesurée entre le commit qui casse et le commit qui répare.
+
+**Ce qui s'est passé à l'étape de la fusion, et pourquoi.** Rien n'a empêché
+de fusionner une pull request dont la CI était rouge, parce que la branche
+`main` n'est protégée par aucune règle. GitHub a affiché l'échec, et s'est
+arrêté là : afficher n'est pas bloquer. La correction consiste à rendre le
+check `Verify` obligatoire avant fusion, dans les réglages de la branche
+`main` (Settings, Branches, règle sur `main`, « Require status checks to pass
+before merging », en cochant `Verify`). Tant que ce n'est pas fait, la
+séparation en deux workflows protège contre une publication accidentelle,
+mais pas contre une fusion de code cassé.
+
+**Aucun tag n'a été abîmé.** `Build & Push` ayant été sauté, aucune image n'a
+été publiée pour le commit cassé — le tag `9536d8b…` n'existe pas sur Docker
+Hub. Le tag publié juste avant l'incident, `1bd0a155…`, est resté disponible
+et fonctionnel pendant toute la durée de la panne. Un nouveau tag,
+`934787e7…`, est apparu après correction. On ne touche jamais à un tag déjà
+publié : on en ajoute un.
+
+**Ce que l'incident apprend.** Une pipeline rouge sur `main` n'est pas une
+faute personnelle, c'est un arrêt d'usine : plus rien ne se publie tant que ce
+n'est pas réparé. Le découpage en jobs a fait que l'échec désignait
+immédiatement le coupable — `verifications / Test` — sans qu'il faille lire
+quatre logs. Et la publication protégée a joué son rôle de dernier filet : même
+si les tests étaient passés, l'image n'aurait pas quitté la CI sans un accord
+humain.
