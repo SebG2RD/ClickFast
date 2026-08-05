@@ -188,6 +188,9 @@ jobs:
     # Publication réservée à main, et uniquement sur un push : on ne publie
     # jamais le travail en chantier d'une pull request.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Environnement protege : un relecteur doit approuver avant que ce job ne
+    # demarre. Le run reste en attente, l image ne part pas toute seule.
+    environment: production
     runs-on: ubuntu-latest
 
     steps:
