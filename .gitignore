@@ -3,3 +3,4 @@ coverage/
 
 # Supports de cours, non versionnes
 *.pdf
+docs/

@@ -11,3 +11,7 @@ dockerfile
 .dockerignore
 .gitignore
 README.md
+
+# Documentation et supports de cours, non deployes
+docs/
+*.pdf
