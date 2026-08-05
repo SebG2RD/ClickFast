@@ -1,4 +1,4 @@
-FROM nginx:1.20-alpine
+FROM nginx:alpine
 WORKDIR /usr/share/nginx/html
 COPY . .
 RUN ls -la
