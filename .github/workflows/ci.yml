@@ -55,6 +55,132 @@ jobs:
       - name: Lancer les tests Jest
         run: npm test
 
+  security-deps:
+    name: Sécurité - dépendances et secrets
+    # Aucun needs : ce job démarre en même temps que lint, rien n'oblige à
+    # attendre les tests pour vérifier les dépendances.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Indispensable : sans l'historique complet, gitleaks ne relit qu'un
+          # seul commit et passerait au vert sans avoir rien vérifié.
+          fetch-depth: 0
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      # Chaque scanner tourne sans faire échouer son étape : le blocage arrive
+      # en dernier, une fois les rapports sauvegardés.
+      - name: Auditer les dépendances
+        id: audit
+        continue-on-error: true
+        run: npm audit --audit-level=high --json > audit-brut.json
+
+      - name: Rédiger le rapport npm audit
+        if: always()
+        run: |
+          mkdir -p rapports
+          node -e '
+            const fs = require("fs");
+            let rapport;
+            try {
+              const v = JSON.parse(fs.readFileSync("audit-brut.json", "utf8"));
+              const n = v.metadata.vulnerabilities.high + v.metadata.vulnerabilities.critical;
+              rapport = {
+                scanner: "npm audit",
+                statut: n > 0 ? "alerte" : "ok",
+                compte: n,
+                unite: "vulnerabilites high/critical",
+                detail: v.metadata.dependencies.total + " paquets audites"
+              };
+            } catch (e) {
+              rapport = {
+                scanner: "npm audit",
+                statut: "erreur",
+                compte: 0,
+                unite: "vulnerabilites high/critical",
+                detail: "rapport illisible : " + e.message
+              };
+            }
+            fs.writeFileSync("rapports/rapport-npm-audit.json", JSON.stringify(rapport, null, 2));
+          '
+
+      - name: Rechercher des secrets dans tout l'historique
+        id: gitleaks
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rédiger le rapport gitleaks
+        if: always()
+        env:
+          RESULTAT_GITLEAKS: ${{ steps.gitleaks.outcome }}
+        run: |
+          mkdir -p rapports
+          node -e '
+            const fs = require("fs");
+            let n = 0;
+            let detail = "historique complet relu";
+            try {
+              n = JSON.parse(fs.readFileSync("results.sarif", "utf8")).runs[0].results.length;
+            } catch {
+              // Pas de fichier SARIF : gitleaks n en produit un que s il trouve
+              // quelque chose. Rien trouve, ou bien le scanner a echoue.
+              if (process.env.RESULTAT_GITLEAKS === "failure") {
+                detail = "le scanner a echoue sans produire de rapport";
+              }
+            }
+            const echec = process.env.RESULTAT_GITLEAKS === "failure";
+            fs.writeFileSync("rapports/rapport-gitleaks.json", JSON.stringify({
+              scanner: "gitleaks",
+              statut: n > 0 ? "alerte" : echec ? "erreur" : "ok",
+              compte: n,
+              unite: "secrets detectes",
+              detail: detail
+            }, null, 2));
+          '
+
+      # Les rapports partent quoi qu il arrive : un scanner qui trouve quelque
+      # chose a travaille, son resultat ne doit pas disparaitre avec l echec.
+      - name: Envoyer les rapports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-security-deps
+          path: rapports/
+
+      - name: Verdict
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            let sortie = 0;
+            for (const nom of ["npm-audit", "gitleaks"]) {
+              let r;
+              try {
+                r = JSON.parse(fs.readFileSync("rapports/rapport-" + nom + ".json", "utf8"));
+              } catch {
+                console.error("Rapport manquant : " + nom);
+                sortie = 1;
+                continue;
+              }
+              if (r.statut !== "ok") {
+                console.error(r.scanner + " : " + r.compte + " " + r.unite + " (" + r.detail + ")");
+                sortie = 1;
+              }
+            }
+            process.exit(sortie);
+          '
+
   build-and-push:
     name: Build & Push
     # Ne démarre que si les tests sont verts
