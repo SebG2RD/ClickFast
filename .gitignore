@@ -1,2 +1,5 @@
 node_modules/
 coverage/
+
+# Supports de cours, non versionnes
+*.pdf
