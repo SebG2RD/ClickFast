@@ -1,0 +1,42 @@
+# Vérification seule : ce workflow ne publie jamais rien.
+#
+# Aucun filtre "branches:" : toute pull request le déclenche, quelle que soit
+# la branche source. Avec un filtre, travailler sur une branche renommée ne
+# déclencherait plus rien, sans le moindre message d'erreur.
+name: Verify
+
+on:
+  pull_request:
+
+jobs:
+  verifications:
+    uses: ./.github/workflows/_verifications.yml
+
+  security-summary:
+    name: Résumé de sécurité
+    needs: [verifications]
+    # Le résumé doit s'afficher même quand une vérification a échoué : c'est
+    # justement dans ce cas qu'on a besoin de le lire.
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Récupérer tous les rapports
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rapport-*
+          merge-multiple: true
+          path: rapports
+
+      - name: Écrire le résumé
+        env:
+          RESULTATS_JOBS: ${{ toJSON(needs) }}
+          # Sur une pull request, aucune image n'est publiée : les scans
+          # d'image sont hors périmètre, pas en panne. Sans ce contexte, le
+          # résumé annoncerait "publiable en confiance" avec deux lignes sur
+          # cinq, sans avoir jamais regardé l'image.
+          CONTEXTE: verification
+        run: node .github/scripts/resume-securite.js

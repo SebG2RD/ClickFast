@@ -1,195 +1,22 @@
-name: CI
+# Publication : ce workflow ne se déclenche que sur un push vers main.
+#
+# Une pull request ne peut donc pas provoquer une publication, même par
+# accident : c'est verify.yml qui la prend en charge, et il ne publie rien.
+name: Release
 
-# Pas de filtre "branches:" ici, volontairement : le workflow se déclenche sur
-# TOUTES les branches. Avec un filtre du type `branches: ["main"]`, travailler
-# sur une branche renommée ne déclencherait plus rien, sans le moindre message
-# d'erreur. C'est le piège le plus silencieux de la CI.
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Installer Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          # Met en cache le dossier de téléchargement npm (~/.npm), avec une clé
-          # dérivée du hash de package-lock.json. npm ci reconstruit toujours
-          # node_modules à partir du lockfile : le cache accélère l'installation,
-          # il ne décide jamais de son contenu. Mesures dans JOURNAL.md.
-          cache: npm
-
-      - name: Installer les dépendances
-        run: npm ci
-
-      - name: Analyser le code avec ESLint
-        run: npm run lint
-
-  test:
-    name: Test
-    # test attend que lint soit vert : si le lint échoue, ce job ne démarre pas
-    needs: lint
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Installer Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          # Met en cache le dossier de téléchargement npm (~/.npm), avec une clé
-          # dérivée du hash de package-lock.json. npm ci reconstruit toujours
-          # node_modules à partir du lockfile : le cache accélère l'installation,
-          # il ne décide jamais de son contenu. Mesures dans JOURNAL.md.
-          cache: npm
-
-      - name: Installer les dépendances
-        run: npm ci
-
-      - name: Lancer les tests Jest
-        run: npm test
-
-  security-deps:
-    name: Sécurité - dépendances et secrets
-    # Aucun needs : ce job démarre en même temps que lint, rien n'oblige à
-    # attendre les tests pour vérifier les dépendances.
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # Indispensable : sans l'historique complet, gitleaks ne relit qu'un
-          # seul commit et passerait au vert sans avoir rien vérifié.
-          fetch-depth: 0
-
-      - name: Installer Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Installer les dépendances
-        run: npm ci
-
-      # Chaque scanner tourne sans faire échouer son étape : le blocage arrive
-      # en dernier, une fois les rapports sauvegardés.
-      - name: Auditer les dépendances
-        id: audit
-        continue-on-error: true
-        run: npm audit --audit-level=high --json > audit-brut.json
-
-      - name: Rédiger le rapport npm audit
-        if: always()
-        run: |
-          mkdir -p rapports
-          node -e '
-            const fs = require("fs");
-            let rapport;
-            try {
-              const v = JSON.parse(fs.readFileSync("audit-brut.json", "utf8"));
-              const n = v.metadata.vulnerabilities.high + v.metadata.vulnerabilities.critical;
-              rapport = {
-                scanner: "npm audit",
-                statut: n > 0 ? "alerte" : "ok",
-                compte: n,
-                unite: "vulnerabilites high/critical",
-                detail: v.metadata.dependencies.total + " paquets audites"
-              };
-            } catch (e) {
-              rapport = {
-                scanner: "npm audit",
-                statut: "erreur",
-                compte: 0,
-                unite: "vulnerabilites high/critical",
-                detail: "rapport illisible : " + e.message
-              };
-            }
-            fs.writeFileSync("rapports/rapport-npm-audit.json", JSON.stringify(rapport, null, 2));
-          '
-
-      - name: Rechercher des secrets dans tout l'historique
-        id: gitleaks
-        continue-on-error: true
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Rédiger le rapport gitleaks
-        if: always()
-        env:
-          RESULTAT_GITLEAKS: ${{ steps.gitleaks.outcome }}
-        run: |
-          mkdir -p rapports
-          node -e '
-            const fs = require("fs");
-            let n = 0;
-            let detail = "historique complet relu";
-            try {
-              n = JSON.parse(fs.readFileSync("results.sarif", "utf8")).runs[0].results.length;
-            } catch {
-              // Pas de fichier SARIF : gitleaks n en produit un que s il trouve
-              // quelque chose. Rien trouve, ou bien le scanner a echoue.
-              if (process.env.RESULTAT_GITLEAKS === "failure") {
-                detail = "le scanner a echoue sans produire de rapport";
-              }
-            }
-            const echec = process.env.RESULTAT_GITLEAKS === "failure";
-            fs.writeFileSync("rapports/rapport-gitleaks.json", JSON.stringify({
-              scanner: "gitleaks",
-              statut: n > 0 ? "alerte" : echec ? "erreur" : "ok",
-              compte: n,
-              unite: "secrets detectes",
-              detail: detail
-            }, null, 2));
-          '
-
-      # Les rapports partent quoi qu il arrive : un scanner qui trouve quelque
-      # chose a travaille, son resultat ne doit pas disparaitre avec l echec.
-      - name: Envoyer les rapports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rapport-security-deps
-          path: rapports/
-
-      - name: Verdict
-        if: always()
-        run: |
-          node -e '
-            const fs = require("fs");
-            let sortie = 0;
-            for (const nom of ["npm-audit", "gitleaks"]) {
-              let r;
-              try {
-                r = JSON.parse(fs.readFileSync("rapports/rapport-" + nom + ".json", "utf8"));
-              } catch {
-                console.error("Rapport manquant : " + nom);
-                sortie = 1;
-                continue;
-              }
-              if (r.statut !== "ok") {
-                console.error(r.scanner + " : " + r.compte + " " + r.unite + " (" + r.detail + ")");
-                sortie = 1;
-              }
-            }
-            process.exit(sortie);
-          '
+  verifications:
+    uses: ./.github/workflows/_verifications.yml
 
   build-and-push:
     name: Build & Push
-    # Ne démarre que si les tests sont verts
-    needs: test
-    # Publication réservée à main, et uniquement sur un push : on ne publie
-    # jamais le travail en chantier d'une pull request.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    # Environnement protege : un relecteur doit approuver avant que ce job ne
-    # demarre. Le run reste en attente, l image ne part pas toute seule.
+    needs: verifications
+    # Environnement protégé : un relecteur doit approuver avant que ce job ne
+    # démarre. Le run reste en attente, l'image ne part pas toute seule.
     environment: production
     runs-on: ubuntu-latest
 
@@ -223,7 +50,7 @@ jobs:
   security-image:
     name: Sécurité - image publiée
     # Trivy scanne une image déjà construite : ce job n'a de sens qu'après la
-    # publication, et n'a donc aucune raison de tourner sur une pull request.
+    # publication.
     needs: build-and-push
     runs-on: ubuntu-latest
     env:
@@ -334,8 +161,7 @@ jobs:
           cache: npm
 
       # Sans node_modules, Syft se contente de constater la présence de
-      # package-lock.json sans en extraire les paquets : l'inventaire des
-      # sources serait vide de toute dépendance npm.
+      # package-lock.json sans en extraire les paquets.
       - name: Installer les dépendances
         run: npm ci
 
@@ -344,11 +170,11 @@ jobs:
         continue-on-error: true
         uses: anchore/sbom-action@v0.24.0
         with:
-          # Le lockfile est cible directement : sur un scan de dossier, Syft se
+          # Le lockfile est ciblé directement : sur un scan de dossier, Syft se
           # contente de le lister comme fichier sans en extraire les paquets.
           file: package-lock.json
-          # Sans cette configuration, Syft ecarte les dependances de
-          # developpement, et ClickFast n a que celles-la.
+          # Sans cette configuration, Syft écarte les dépendances de
+          # développement, et ClickFast n'a que celles-là.
           config: .github/syft.yaml
           format: cyclonedx-json
           output-file: sbom/sbom-sources.cdx.json
@@ -375,8 +201,7 @@ jobs:
           '
 
       # Deux artefacts distincts : les inventaires complets d un cote, les
-      # petits fichiers de comptage de l autre. Les melanger deverserait les
-      # SBOM entiers dans le dossier fusionne du job de resume.
+      # petits fichiers de comptage de l autre.
       - name: Publier les SBOM téléchargeables
         if: always()
         uses: actions/upload-artifact@v4
@@ -395,9 +220,7 @@ jobs:
 
   security-summary:
     name: Résumé de sécurité
-    needs: [security-deps, security-image, sbom]
-    # always() : le résumé doit s'afficher même quand un scanner a échoué ou a
-    # été sauté. C'est justement dans ces cas qu'on a besoin de le lire.
+    needs: [verifications, security-image, sbom]
     if: always()
     runs-on: ubuntu-latest
 
@@ -418,4 +241,5 @@ jobs:
       - name: Écrire le résumé
         env:
           RESULTATS_JOBS: ${{ toJSON(needs) }}
+          CONTEXTE: publication
         run: node .github/scripts/resume-securite.js

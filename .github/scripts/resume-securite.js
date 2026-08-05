@@ -68,17 +68,31 @@ function listerJobsSansResultat() {
     .map(([nom, v]) => `${nom} (${v.result})`);
 }
 
+/**
+ * Le verdict dépend du contexte. Sur une pull request, aucune image n'est
+ * publiée : les scans d'image sont hors périmètre, pas en panne. Sans cette
+ * distinction, le résumé annoncerait « publiable en confiance » avec deux
+ * lignes sur cinq, sans avoir jamais regardé ce qu'on livrerait.
+ */
+function construireVerdict(soucis, absents) {
+  if (soucis.length) {
+    return `❌ à ne pas publier : ${soucis.join(", ")}`;
+  }
+  if ((process.env.CONTEXTE || "publication") === "verification") {
+    return absents.length
+      ? "⚠️ vérifications de branche incomplètes"
+      : "✅ vérifications de branche : OK (scans d'image hors périmètre)";
+  }
+  if (absents.length) {
+    return "⚠️ incomplet : certains scanners n'ont pas produit de résultat";
+  }
+  return "✅ publiable en confiance";
+}
+
 function construireResume() {
   const { lignes, soucis } = construireLignes(listerRapports());
   const absents = listerJobsSansResultat();
-
-  let verdict = "✅ publiable en confiance";
-  if (absents.length) {
-    verdict = "⚠️ incomplet : certains scanners n'ont pas produit de résultat";
-  }
-  if (soucis.length) {
-    verdict = `❌ à ne pas publier : ${soucis.join(", ")}`;
-  }
+  const verdict = construireVerdict(soucis, absents);
 
   const sortie = [
     "## Résumé de sécurité",
