@@ -113,3 +113,64 @@ username: ***
 `lint` et `test` étant déjà terminés, seul `build-and-push` tombe. C'est
 l'intérêt de découper la pipeline en jobs : l'échec désigne l'étape fautive au
 lieu de teinter tout le run en rouge.
+
+## Tableau de bord sécurité (palier 2)
+
+Relevé au commit `e5a3e63`, pipeline verte.
+
+| Scanner | Résultat | Périmètre |
+| --- | --- | --- |
+| `npm audit` | 0 vulnérabilité high/critical | 455 paquets |
+| gitleaks | 0 secret | historique complet |
+| Trivy | 0 CVE high/critical | image `nginx:alpine` publiée |
+| SBOM image | 1026 composants | paquets Alpine et nginx |
+| SBOM sources | 432 composants | dépendances npm déclarées |
+
+L'écart entre les deux inventaires n'est pas une anomalie : le `.dockerignore`
+exclut `package.json` et `node_modules` de l'image. Ce qu'on développe et ce
+qu'on livre ne contiennent pas les mêmes composants, d'où deux SBOM distincts.
+
+## Démonstrations : prouver que les scanners détectent vraiment
+
+Un job de sécurité qui reste vert n'a pas forcément vérifié quoi que ce soit.
+Chaque scanner a donc été mis à l'épreuve.
+
+| Démonstration | Run | Résultat |
+| --- | --- | --- |
+| `handlebars@4.0.0` (branche, non fusionnée) | `30987990950` | `npm audit` : 4 vulnérabilités high/critical |
+| Faux secret ajouté puis supprimé (branche) | `30990475482` | gitleaks : 3 secrets, trouvés dans le commit qui les ajoutait |
+| `FROM nginx:1.20-alpine` (main, puis retour arrière) | `30991474256` | Trivy : 30 CVE high/critical |
+| Version `42.0.0-inventee` dans `package.json` | `30995235267` | reprise telle quelle dans le SBOM des sources |
+| Ajout de `lodash` | `30995414413` | SBOM sources : 432 → 433 composants |
+
+Dans chaque cas, seul le job concerné est tombé : `lint` et `test` sont restés
+verts. C'est l'intérêt de découper la pipeline en jobs plutôt qu'en un seul.
+
+### Trois pièges rencontrés, et ce qu'ils apprennent
+
+**Un faux secret trop bien choisi n'est pas détecté.** La première tentative
+utilisait `AKIAIOSFODNN7EXAMPLE`, la clé d'exemple publiée par AWS. gitleaks
+est resté vert : cette valeur figure dans sa liste d'exception par défaut,
+précisément parce qu'elle est publique. Le log confirmait pourtant que la
+bonne plage de commits avait été relue. Avec des chaînes aléatoires, trois
+trouvailles sont remontées.
+
+**Un inventaire valide peut être vide de l'essentiel.** Le SBOM des sources ne
+comptait que 2 composants sur un lockfile de 456 paquets. Cause :
+`javascript.include-dev-dependencies` vaut `false` par défaut dans Syft, et
+ClickFast n'a que des dépendances de développement. Corrigé par
+`.github/syft.yaml`.
+
+**Un scanner en échec doit déposer son rapport avant de bloquer.** Si l'étape
+du scanner fait échouer le job immédiatement, l'artefact n'est jamais envoyé
+et le résumé affiche « non exécuté » alors que le scanner a parfaitement
+travaillé. D'où l'ordre retenu partout : scanner sans échouer, écrire le
+rapport, l'envoyer avec `if: always()`, bloquer en dernier.
+
+### Une vulnérabilité réelle, non mise en scène
+
+L'ajout de `lodash@4.17.21` a fait tomber `npm audit` sur trois avis publiés
+contre `lodash <= 4.17.23` (GHSA-r5fr-rjxr-66jc, GHSA-f23m-r3pf-42rh,
+GHSA-xxjr-mmjv-4gpg). Ce n'était pas prévu : la version passait pour saine.
+La pipeline a attrapé une vulnérabilité actuelle sur une dépendance courante,
+ce qui vaut mieux que n'importe quelle démonstration préparée.
