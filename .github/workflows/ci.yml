@@ -389,3 +389,30 @@ jobs:
           name: rapport-sbom
           path: rapports/
           if-no-files-found: warn
+
+  security-summary:
+    name: Résumé de sécurité
+    needs: [security-deps, security-image, sbom]
+    # always() : le résumé doit s'afficher même quand un scanner a échoué ou a
+    # été sauté. C'est justement dans ces cas qu'on a besoin de le lire.
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # merge-multiple rassemble les rapports des trois jobs dans un seul
+      # dossier. Obligatoire avec upload-artifact@v4, où deux envois ne peuvent
+      # plus partager un même nom d'artefact.
+      - name: Récupérer tous les rapports
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rapport-*
+          merge-multiple: true
+          path: rapports
+
+      - name: Écrire le résumé
+        env:
+          RESULTATS_JOBS: ${{ toJSON(needs) }}
+        run: node .github/scripts/resume-securite.js
