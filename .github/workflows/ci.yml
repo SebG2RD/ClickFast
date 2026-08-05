@@ -216,3 +216,84 @@ jobs:
           # Le sha du commit courant : chaque push produit un tag unique,
           # donc une image identifiable et promouvable telle quelle.
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/clickfast:${{ github.sha }}
+
+  security-image:
+    name: Sécurité - image publiée
+    # Trivy scanne une image déjà construite : ce job n'a de sens qu'après la
+    # publication, et n'a donc aucune raison de tourner sur une pull request.
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/clickfast:${{ github.sha }}
+
+    steps:
+      # Sans cette vérification, un tag absent laisserait Trivy scanner dans le
+      # vide et le job passerait au vert sans avoir rien examiné.
+      - name: Vérifier que le tag est bien publié
+        run: |
+          if ! docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "::error::Image introuvable sur Docker Hub : $IMAGE"
+            exit 1
+          fi
+          echo "Image trouvée : $IMAGE"
+
+      - name: Scanner l'image
+        id: trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          format: json
+          output: trivy-brut.json
+          # On ne bloque pas ici : le rapport doit partir avant le verdict.
+          exit-code: "0"
+
+      - name: Rédiger le rapport Trivy
+        if: always()
+        env:
+          RESULTAT_TRIVY: ${{ steps.trivy.outcome }}
+        run: |
+          mkdir -p rapports
+          node -e '
+            const fs = require("fs");
+            let n = -1;
+            try {
+              const t = JSON.parse(fs.readFileSync("trivy-brut.json", "utf8"));
+              n = (t.Results || []).reduce((s, r) => s + (r.Vulnerabilities || []).length, 0);
+            } catch {}
+            const erreur = n < 0 || process.env.RESULTAT_TRIVY === "failure";
+            fs.writeFileSync("rapports/rapport-trivy.json", JSON.stringify({
+              scanner: "Trivy (image)",
+              statut: erreur ? "erreur" : n > 0 ? "alerte" : "ok",
+              compte: Math.max(n, 0),
+              unite: "CVE high/critical",
+              detail: erreur ? "scan non exploitable" : (process.env.GITHUB_SHA || "").slice(0, 12)
+            }, null, 2));
+          '
+
+      - name: Envoyer le rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-security-image
+          path: rapports/
+
+      - name: Verdict
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            let r;
+            try {
+              r = JSON.parse(fs.readFileSync("rapports/rapport-trivy.json", "utf8"));
+            } catch {
+              console.error("Rapport Trivy manquant");
+              process.exit(1);
+            }
+            if (r.statut !== "ok") {
+              console.error(r.scanner + " : " + r.compte + " " + r.unite + " (" + r.detail + ")");
+              process.exit(1);
+            }
+          '
