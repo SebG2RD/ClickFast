@@ -28,7 +28,7 @@ module.exports = [
     },
   },
 
-  // Le jeu s'exécute dans le navigateur : document, fetch, setInterval…
+  // Le jeu s'exécute dans le navigateur : document, fetch, setInterval, etc.
   {
     files: ["script.js"],
     languageOptions: {

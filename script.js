@@ -51,7 +51,7 @@ function handleScoreForm() {
       return;
     }
 
-    status.textContent = "Envoi en cours…";
+    status.textContent = "Envoi en cours...";
 
     try {
       await submitScore(username, score);
@@ -185,7 +185,7 @@ async function submitScore(username, points) {
 /** Affiche le top 10 des scores, du meilleur au moins bon. */
 async function displayScores() {
   const list = document.getElementById("scoreboard");
-  list.innerHTML = "<li>Chargement du scoreboard…</li>";
+  list.innerHTML = "<li>Chargement du scoreboard...</li>";
 
   try {
     const scores = await fetchScores();

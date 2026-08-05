@@ -3,7 +3,7 @@ name: CI
 # Pas de filtre "branches:" ici, volontairement : le workflow se déclenche sur
 # TOUTES les branches. Avec un filtre du type `branches: ["main"]`, travailler
 # sur une branche renommée ne déclencherait plus rien, sans le moindre message
-# d'erreur — le piège le plus silencieux de la CI.
+# d'erreur. C'est le piège le plus silencieux de la CI.
 on: [push, pull_request]
 
 jobs:

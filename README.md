@@ -59,7 +59,7 @@ docker run -d -p 8080:80 nghtmre/clickfast:<sha-du-commit>
 ```
 
 Le scoreboard interroge une API partagée : sans connexion, le jeu fonctionne
-mais la liste des scores affiche « Scoreboard indisponible ».
+mais la liste des scores affiche "Scoreboard indisponible".
 
 Les mesures de performance de la pipeline sont consignées dans
 [JOURNAL.md](JOURNAL.md).
