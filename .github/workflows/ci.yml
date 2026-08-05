@@ -344,6 +344,9 @@ jobs:
           # Le lockfile est cible directement : sur un scan de dossier, Syft se
           # contente de le lister comme fichier sans en extraire les paquets.
           file: package-lock.json
+          # Sans cette configuration, Syft ecarte les dependances de
+          # developpement, et ClickFast n a que celles-la.
+          config: .github/syft.yaml
           format: cyclonedx-json
           output-file: sbom/sbom-sources.cdx.json
           upload-artifact: false

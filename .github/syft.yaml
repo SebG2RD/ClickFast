@@ -1,0 +1,10 @@
+# Configuration Syft pour l'inventaire des sources.
+#
+# Toutes les dependances de ClickFast sont des devDependencies : Jest, ESLint,
+# jsdom. Or Syft les ecarte par defaut, ce qui produisait un inventaire de
+# 2 composants sur un lockfile de 456 paquets.
+#
+# Ce fichier vit dans .github/ et non a la racine : .dockerignore exclut deja
+# ce dossier, l inventaire ne part donc pas dans l image.
+javascript:
+  include-dev-dependencies: true
