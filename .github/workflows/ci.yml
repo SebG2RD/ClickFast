@@ -341,7 +341,9 @@ jobs:
         continue-on-error: true
         uses: anchore/sbom-action@v0.24.0
         with:
-          path: .
+          # Le lockfile est cible directement : sur un scan de dossier, Syft se
+          # contente de le lister comme fichier sans en extraire les paquets.
+          file: package-lock.json
           format: cyclonedx-json
           output-file: sbom/sbom-sources.cdx.json
           upload-artifact: false
