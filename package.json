@@ -1,6 +1,6 @@
 {
   "name": "clickfast",
-  "version": "1.0.0",
+  "version": "42.0.0-inventee",
   "description": "Sois le plus rapide des clickers du game ⚡",
   "main": "script.js",
   "scripts": {
