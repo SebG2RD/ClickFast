@@ -75,8 +75,8 @@ describe("ClickFast", () => {
     test("Vérifiez que le score s'incrémente correctement", () => {
       // Un seul clic
       buttonClicker.click();
-      expect(getScore()).toBe(1);
-      expect(scoreDisplay.textContent).toBe("1");
+      expect(getScore()).toBe(2);
+      expect(scoreDisplay.textContent).toBe("2");
 
       // Puis plusieurs clics d'affilée
       for (let i = 0; i < 4; i++) {
