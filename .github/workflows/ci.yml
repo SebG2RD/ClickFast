@@ -324,6 +324,18 @@ jobs:
           output-file: sbom/sbom-image.cdx.json
           upload-artifact: false
 
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # Sans node_modules, Syft se contente de constater la présence de
+      # package-lock.json sans en extraire les paquets : l'inventaire des
+      # sources serait vide de toute dépendance npm.
+      - name: Installer les dépendances
+        run: npm ci
+
       - name: Inventorier les sources
         id: sbom_sources
         continue-on-error: true
